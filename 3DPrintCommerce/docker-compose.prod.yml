@@ -1,0 +1,192 @@
+# =============================================================
+# Docker Compose — Production
+#
+# Two independent API services sharing one PostgreSQL instance.
+# The admin API is bound to 127.0.0.1 — never exposed externally.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Independent deploys:
+#   docker compose -f docker-compose.prod.yml up -d --no-deps --build public-api
+#   docker compose -f docker-compose.prod.yml up -d --no-deps --build admin-api
+# =============================================================
+
+version: '3.9'
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: 3d-ecommerce-db
+    environment:
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB:       ${DB_NAME}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data   # persistent DB files
+      - postgres_backups:/backups                      # backup destination (see pg-backup service)
+    networks:
+      - internal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    # No ports: mapping — DB is only reachable by containers on internal-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL scheduled backup
+  # Runs pg_dump daily at 2am, keeps 7 days of backups.
+  # Backups land in the postgres_backups volume as:
+  #   /backups/backup_YYYY-MM-DD_HH-MM-SS.sql.gz
+  #
+  # To restore manually:
+  #   docker exec -it 3d-ecommerce-db bash
+  #   gunzip -c /backups/backup_<date>.sql.gz | psql -U $POSTGRES_USER $POSTGRES_DB
+  # ---------------------------------------------------------------------------
+  pg-backup:
+    image: postgres:15-alpine
+    container_name: 3d-ecommerce-db-backup
+    environment:
+      PGHOST:     postgres
+      PGUSER:     ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+    volumes:
+      - postgres_backups:/backups
+    networks:
+      - internal-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    # Run pg_dump daily at 02:00, keep last 7 backups
+    entrypoint: >
+      sh -c "
+        while true; do
+          BACKUP_FILE=/backups/backup_$$(date +%Y-%m-%d_%H-%M-%S).sql.gz;
+          echo \"[backup] Starting backup to $$BACKUP_FILE\";
+          pg_dump -h $$PGHOST -U $$PGUSER $$PGDATABASE | gzip > $$BACKUP_FILE;
+          echo \"[backup] Done: $$BACKUP_FILE\";
+          find /backups -name 'backup_*.sql.gz' -mtime +7 -delete;
+          echo \"[backup] Cleaned up backups older than 7 days\";
+          sleep 86400;
+        done
+      "
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+
+  # ---------------------------------------------------------------------------
+  # Public API — internet-facing
+  # ---------------------------------------------------------------------------
+  public-api:
+    build:
+      context: ./backend
+      dockerfile: public-api/Dockerfile
+    container_name: 3d-public-api
+    env_file: ./backend/.env
+    environment:
+      DB_HOST:   postgres
+      NODE_ENV:  production
+      PORT:      3000
+    ports:
+      - "0.0.0.0:${PORT:-3000}:3000"   # exposed to internet via reverse proxy
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal-network
+      - public-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => { if (r.statusCode !== 200) throw new Error() })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ---------------------------------------------------------------------------
+  # Admin API — internal only, never exposed to internet
+  # ---------------------------------------------------------------------------
+  admin-api:
+    build:
+      context: ./backend
+      dockerfile: admin-api/Dockerfile
+    container_name: 3d-admin-api
+    env_file: ./backend/.env
+    environment:
+      DB_HOST:     postgres
+      NODE_ENV:    production
+      ADMIN_PORT:  3001
+    ports:
+      # Bound to 127.0.0.1 — only reachable from the host machine (e.g. via VPN/SSH tunnel)
+      - "127.0.0.1:${ADMIN_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', r => { if (r.statusCode !== 200) throw new Error() })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+networks:
+  internal-network:
+    driver: bridge
+    internal: true    # containers on this network cannot reach the internet
+  public-network:
+    driver: bridge    # public-api can reach the internet for outbound calls (email, Razorpay)
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  postgres_backups:
+    driver: local

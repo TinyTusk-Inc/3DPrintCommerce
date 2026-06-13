@@ -1,0 +1,96 @@
+# =============================================================
+# Docker Compose — Development
+# PostgreSQL in Docker + both API servers run locally via npm.
+#
+# Usage:
+#   docker compose up -d              → starts PostgreSQL only
+#   cd backend && npm run dev         → starts BOTH API servers (nodemon src/server.js)
+#   cd web && npm start               → starts React frontend
+#
+# Public API:  http://localhost:3000
+# Admin API:   http://localhost:3001  (localhost only — not exposed externally)
+# Frontend:    http://localhost:3001  (React dev server — note: same port as admin in dev)
+#
+# TIP: In development, set ADMIN_PORT=3002 in backend/.env to avoid the port clash
+#      between the admin API and the React dev server.
+# =============================================================
+
+version: '3.9'
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — shared by both API servers
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: 3d-ecommerce-db-dev
+    environment:
+      POSTGRES_USER:     ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB:       ${DB_NAME:-ecommerce_3d_db}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Public API (optional — uncomment to run in Docker instead of locally)
+  # ---------------------------------------------------------------------------
+  # public-api:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: public-api/Dockerfile
+  #   container_name: 3d-public-api-dev
+  #   env_file: ./backend/.env
+  #   environment:
+  #     DB_HOST: postgres
+  #     NODE_ENV: development
+  #   ports:
+  #     - "${PORT:-3000}:3000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - ecommerce-network
+  #   restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Admin API (optional — uncomment to run in Docker instead of locally)
+  # ---------------------------------------------------------------------------
+  # admin-api:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: admin-api/Dockerfile
+  #   container_name: 3d-admin-api-dev
+  #   env_file: ./backend/.env
+  #   environment:
+  #     DB_HOST: postgres
+  #     NODE_ENV: development
+  #   ports:
+  #     # In development only — remove this port mapping in production
+  #     - "127.0.0.1:${ADMIN_PORT:-3001}:3001"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - ecommerce-network
+  #   restart: unless-stopped
+
+networks:
+  ecommerce-network:
+    driver: bridge
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  postgres_backups:
+    driver: local
