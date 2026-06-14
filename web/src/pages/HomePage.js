@@ -48,18 +48,18 @@ function HomePage() {
   }
 
   return (
-    <Container sx={{ py: '0 !important', px: '0 !important' }}>
-    <Container sx={{ py: '0 !important', px: '0 !important'}}>
+    <Container sx={{ py: 0, px: 4 }}>
       {/* Hero */}
       <Box
         sx={{
-          borderRadius: 2,
+          borderBottomLeftRadius: 2,
+          borderBottomRightRadius: 2,
           color: 'common.white',
           textAlign: 'center',
           py: 8,
-          px: '0 !important',
-          mb: 4,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url(https://t3.ftcdn.net/jpg/03/63/41/96/360_F_363419657_0CMItxgjrcweyZbbXilocTd7ahlIjFCa.jpg) no-repeat',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       >
         <Typography variant="h3" component="h1" sx={{ fontWeight: 700, mb: 2 }}>
@@ -75,6 +75,7 @@ function HomePage() {
     </Container>
     <Container sx={{ py: 4 }}>
       {/* Categories */}
+<<<<<<< HEAD
       <Box sx={{ mb: 4 }}>
         <Typography variant="h5" gutterBottom>
           Categories
@@ -84,27 +85,35 @@ function HomePage() {
             <Grid item key={category.id} xs={12} sm={6} md={3}>
               <Card variant="outlined" sx={{ height: '100%', width: '100%', minWidth: 180 }}>
                 <CardActionArea component={RouterLink} to={`/products?category_id=${category.id}`} sx={{ p: 0, display: 'block', width: '100%', minWidth: 180 }}>
-                  <Box
-                    sx={{
-                      position: 'relative',
-                      height: 140,
-                      width: '100%',
-                      minWidth: 160,
-                      backgroundImage: `url(${category.image_url})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                  >
-                      <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.45)' }} />
-                      <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'common.white', px: 2, textAlign: 'center', width: '100%' }}>
-                          <Typography variant="h6" sx={{ fontWeight: 700 }}>{category.name}</Typography>
+=======
+        <Typography variant="h5" gutterBottom>
+          Categories
+        </Typography>
+      </Container>
+      <Container sx={{ py: 4 }}>
+        {/* Categories */}
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 2,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+          }}
+        >
+          <Typography variant="h5" gutterBottom>
+            Categories
+          </Typography>
+          {categories.map((category) => (
+            <Card key={category.id} variant="outlined" sx={{ height: '100%' }}>
+              <CardActionArea component={RouterLink} to={`/products?category_id=${category.id}`} sx={{ p: 0, display: 'block', width: '100%' }}>
                       </Box>
                     </Box>
                   </CardActionArea>
               </Card>
-            </Grid>
-          ))}
-        </Grid>
+<<<<<<< HEAD
+                        backgroundImage: `url(${category.image_url})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+>>>>>>> 0bc6e95 (Initial commit from local workspace)
       </Box>
 
       {/* Featured Products */}
@@ -112,15 +121,8 @@ function HomePage() {
         <Typography variant="h5" gutterBottom>
           Featured Products
         </Typography>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Grid container spacing={3}>
-          {featuredProducts.map((product) => (
-            <Grid item key={product.id} xs={12} sm={6} md={3}>
+            </Card>
+          ))}
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <CardActionArea component={RouterLink} to={`/products/${product.id}`} sx={{ flexGrow: 1 }}>
                   {product.image_urls?.[0] ? (

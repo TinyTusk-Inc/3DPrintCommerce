@@ -98,3 +98,6 @@ web/.cache/
 process.exit(0)
 *.tmp
 *.temp
+
+# Continue agent config (contains local API keys)
+.continue/

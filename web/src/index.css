@@ -437,6 +437,7 @@ html {
   color: #e74c3c;
 }
 
+<<<<<<< HEAD
 /* Remove default MUI Container/Box paddings globally
 .MuiContainer-root {
   padding-left: 0 !important;
@@ -446,6 +447,8 @@ html {
 .MuiBox-root {
   padding: 0 !important;
 } */
+=======
+>>>>>>> 0bc6e95 (Initial commit from local workspace)
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -460,10 +463,13 @@ html {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
 
+<<<<<<< HEAD
   .main-content {
     padding: 10px;
   }
 
+=======
+>>>>>>> 0bc6e95 (Initial commit from local workspace)
   .card {
     padding: 15px;
   }
